@@ -8,13 +8,16 @@ import (
 	"strings"
 )
 
-var inDirs = []string{"Users", "moumooun"}
+var inDirs = []string{}
 var ChanInput chan string
 var ChanClose chan int
 
 func init() {
 	ChanInput = make(chan string, 0)
 	ChanClose = make(chan int, 0)
+
+	homeDir, _ := os.UserHomeDir()
+	inDirs = strings.Split(homeDir[1:], "/")
 }
 
 
@@ -24,12 +27,15 @@ func Readline() {
 }
 
 func _readLine() {
-	//reader := bufio.NewReader(os.Stdin)
+	curPath	:= ""
+	var err error
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		// 作为无缓冲channel通道的内容生产者
+		fmt.Printf("%s", "$ ")
 		scanner.Scan()
 		cmd := scanner.Text()
+
 		if cmd == "exit" {
 			ChanClose <- 1
 		} else if strings.HasPrefix(cmd, "cd ") {
@@ -37,7 +43,14 @@ func _readLine() {
 			if len(args) != 2 {
 				continue
 			}
-			ChanInput <- args[1]
+			curPath, err = assemblePath(args[1])
+			if err != nil {
+				fmt.Println(err)
+				continue
+			}
+		} else if cmd == "pwd" {
+			curPath, err = assemblePath(".")
+			ChanInput <- curPath
 		}
 	}
 }
@@ -45,13 +58,8 @@ func _readLine() {
 func PrintLine() {
 	for {
 		select {
-		case cmd := <- ChanInput:
-			curPath, err := assemblePath(cmd)
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println(curPath)
-			}
+		case curPath := <- ChanInput:
+			fmt.Println(curPath)
 		case <-ChanClose:
 			close(ChanInput)
 			os.Exit(0)
@@ -61,6 +69,9 @@ func PrintLine() {
 }
 
 func assemblePath(cmd string) (string, error) {
+	if cmd == "" {
+		cmd = "."
+	}
 	idx := strings.IndexAny(cmd, "~") // homeDir 只能为第一个字符
 	if idx > 0 {
 		return "", errors.New("cd: no such file or directory: " + cmd)
@@ -74,6 +85,9 @@ func assemblePath(cmd string) (string, error) {
 	dirs := strings.Split(cmd, "/")
 	for _, dir := range dirs {
 		switch dir {
+		case "":
+			continue
+		case ".":
 		case "..":
 			if len(inDirs) < 1 {
 				inDirs = []string{}
@@ -87,6 +101,9 @@ func assemblePath(cmd string) (string, error) {
 	curPath := ""
 	for _, dir := range inDirs {
 		curPath += "/" + dir
+	}
+	if curPath == "" {
+		curPath = "/"
 	}
 	return curPath, nil
 }
