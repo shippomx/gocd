@@ -8,25 +8,26 @@ import (
 	"strings"
 )
 
-var inDirs = []string{}
+type END int
+
+var inDirs []string
 var ChanInput chan string
-var ChanClose chan int
+var ChanClose chan END
 
 func init() {
 	ChanInput = make(chan string, 0)
-	ChanClose = make(chan int, 0)
+	ChanClose = make(chan END, 0)
 
 	homeDir, _ := os.UserHomeDir()
 	inDirs = strings.Split(homeDir[1:], "/")
 }
 
-
 // 作为无缓冲channel通道的内容生产者
 func Readline() {
-	_readLine()
+	readLine()
 }
 
-func _readLine() {
+func readLine() {
 	curPath	:= ""
 	var err error
 	scanner := bufio.NewScanner(os.Stdin)
